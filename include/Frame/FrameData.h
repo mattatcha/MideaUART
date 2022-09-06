@@ -10,7 +10,8 @@ namespace midea {
 class FrameData {
  public:
   FrameData() = delete;
-  FrameData(std::vector<uint8_t>::const_iterator begin, std::vector<uint8_t>::const_iterator end) : m_data(begin, end) {}
+  FrameData(std::vector<uint8_t>::const_iterator begin, std::vector<uint8_t>::const_iterator end)
+      : m_data(begin, end) {}
   FrameData(const uint8_t *data, uint8_t size) : m_data(data, data + size) {}
   FrameData(std::initializer_list<uint8_t> list) : m_data(list) {}
   FrameData(uint8_t size) : m_data(size, 0) {}
@@ -18,7 +19,8 @@ class FrameData {
   const uint8_t *data() const { return this->m_data.data(); }
   uint8_t size() const { return this->m_data.size(); }
   bool hasID(uint8_t value) const { return this->m_data[0] == value; }
-  bool hasStatus() const { return this->hasID(0xC0); }
+  bool hasStatus() const { return 0x80 == this->m_data[0x2]; }
+  // return this->hasID(0xC0); }
   bool hasPowerInfo() const { return this->hasID(0xC1); }
   void appendCRC() { this->m_data.push_back(this->m_calcCRC()); }
   void updateCRC() {
@@ -26,6 +28,7 @@ class FrameData {
     this->appendCRC();
   }
   bool hasValidCRC() const { return !this->m_calcCRC(); }
+
  protected:
   std::vector<uint8_t> m_data;
   static uint8_t m_id;
@@ -44,8 +47,9 @@ class FrameData {
 
 class NetworkNotifyData : public FrameData {
  public:
-  NetworkNotifyData() : FrameData({0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x01, 0x00,
-                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {}
+  NetworkNotifyData()
+      : FrameData({0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x01, 0x00,
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {}
   void setConnected(bool state) { this->m_setMask(8, !state, 1); }
   void setSignalStrength(uint8_t value) { this->m_setValue(2, value); }
   void setIP(const IPAddress &ip);

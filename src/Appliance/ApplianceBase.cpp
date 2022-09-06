@@ -12,7 +12,7 @@ namespace midea {
 static const char *TAG = "ApplianceBase";
 
 ResponseStatus ApplianceBase::Request::callHandler(const Frame &frame) {
-  if (!frame.hasType(this->requestType))
+  if (!frame.hasType(this->requestType) || frame.size() != 32)
     return ResponseStatus::RESPONSE_WRONG;
   if (this->onData == nullptr)
     return RESPONSE_OK;
@@ -24,15 +24,23 @@ bool ApplianceBase::FrameReceiver::read(Stream *stream) {
     const uint8_t data = stream->read();
     const uint8_t length = this->m_data.size();
     if (length == OFFSET_START && data != START_BYTE)
+      // LOG_D(TAG, "At start got: %02X", data);
       continue;
-    if (length == OFFSET_LENGTH && data <= OFFSET_DATA) {
+    // if (length == OFFSET_LENGTH && data <= OFFSET_DATA) {
+    if (length == REQUEST_LENGTH && data == END_BYTE) {
+      this->m_data.push_back(data);
+      LOG_D(TAG, "Ignoring Request: %s checksum: %02X", this->toString().c_str(), this->m_calcCS());
       this->m_data.clear();
       continue;
     }
     this->m_data.push_back(data);
-    if (length > OFFSET_DATA && length >= this->m_data[OFFSET_LENGTH]) {
-      if (this->isValid())
+    if (data == END_BYTE) {
+      // LOG_D(TAG, "Read byte: %s", this->toString().c_str());
+
+      if (this->isValid()) {
+        LOG_D(TAG, "Valid frame: %s", this->toString().c_str());
         return true;
+      }
       this->m_data.clear();
     }
   }
@@ -77,7 +85,7 @@ void ApplianceBase::loop() {
   if (this->m_request->onData != nullptr) {
     this->m_resetAttempts();
     this->m_resetTimeout();
-  } else {    
+  } else {
     this->m_destroyRequest();
   }
 }
@@ -126,8 +134,8 @@ void ApplianceBase::m_sendNetworkNotify(FrameType msgType) {
   notify.setIP(WiFi.localIP());
   notify.appendCRC();
   if (msgType == NETWORK_NOTIFY) {
-    LOG_D(TAG, "Enqueuing a DEVICE_NETWORK(0x0D) notification...");
-    this->m_queueNotify(msgType, std::move(notify));
+    // LOG_D(TAG, "Enqueuing a DEVICE_NETWORK(0x0D) notification...");
+    // this->m_queueNotify(msgType, std::move(notify));
   } else {
     LOG_D(TAG, "Answer to QUERY_NETWORK(0x63) request...");
     this->m_sendFrame(msgType, std::move(notify));
@@ -158,7 +166,7 @@ void ApplianceBase::m_destroyRequest() {
 }
 
 void ApplianceBase::m_sendFrame(FrameType type, const FrameData &data) {
-  Frame frame(this->m_appType, this->m_protocol, type, data);
+  Frame frame(type, data);
   LOG_D(TAG, "TX: %s", frame.toString().c_str());
   this->m_stream->write(frame.data(), frame.size());
   this->m_isBusy = true;
@@ -169,14 +177,18 @@ void ApplianceBase::m_sendFrame(FrameType type, const FrameData &data) {
   this->m_periodTimer.start(this->m_period);
 }
 
-void ApplianceBase::m_queueRequest(FrameType type, FrameData data, ResponseHandler onData, Handler onSucess, Handler onError) {
+void ApplianceBase::m_queueRequest(FrameType type, FrameData data, ResponseHandler onData, Handler onSucess,
+                                   Handler onError) {
   LOG_D(TAG, "Enqueuing the request...");
-  this->m_queue.push_back(new Request{std::move(data), std::move(onData), std::move(onSucess), std::move(onError), type});
+  this->m_queue.push_back(
+      new Request{std::move(data), std::move(onData), std::move(onSucess), std::move(onError), type});
 }
 
-void ApplianceBase::m_queueRequestPriority(FrameType type, FrameData data, ResponseHandler onData, Handler onSucess, Handler onError) {
+void ApplianceBase::m_queueRequestPriority(FrameType type, FrameData data, ResponseHandler onData, Handler onSucess,
+                                           Handler onError) {
   LOG_D(TAG, "Priority request queuing...");
-  this->m_queue.push_front(new Request{std::move(data), std::move(onData), std::move(onSucess), std::move(onError), type});
+  this->m_queue.push_front(
+      new Request{std::move(data), std::move(onData), std::move(onSucess), std::move(onError), type});
 }
 
 void ApplianceBase::setBeeper(bool value) {
@@ -184,5 +196,5 @@ void ApplianceBase::setBeeper(bool value) {
   this->m_beeper = value;
 }
 
-} // namespace midea
-} // namespace dudanov
+}  // namespace midea
+}  // namespace dudanov

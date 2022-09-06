@@ -25,8 +25,6 @@ class AirConditioner : public ApplianceBase {
   void m_onIdle() override { this->m_getStatus(); }
   void control(const Control &control);
   void setPowerState(bool state);
-  bool getPowerState() const { return this->m_mode != Mode::MODE_OFF; }
-  void togglePowerState() { this->setPowerState(this->m_mode == Mode::MODE_OFF); }
   float getTargetTemp() const { return this->m_targetTemp; }
   float getIndoorTemp() const { return this->m_indoorTemp; }
   float getOutdoorTemp() const { return this->m_outdoorTemp; }
@@ -38,6 +36,7 @@ class AirConditioner : public ApplianceBase {
   Preset getPreset() const { return this->m_preset; }
   const Capabilities &getCapabilities() const { return this->m_capabilities; }
   void displayToggle() { this->m_displayToggle(); }
+
  protected:
   void m_getPowerUsage();
   void m_getCapabilities();

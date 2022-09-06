@@ -5,36 +5,23 @@ namespace midea {
 namespace ac {
 
 float StatusData::getTargetTemp() const {
-  uint8_t tmp = this->m_getValue(2, 15) + 16;
-  uint8_t tmpNew = this->m_getValue(13, 31);
-  if (tmpNew)
-    tmp = tmpNew + 12;
-  float temp = static_cast<float>(tmp);
-  if (this->m_getValue(2, 16))
-    temp += 0.5F;
-  return temp;
+  // float temp = static_cast<float>(this->m_getValue(2, 15) + 16);
+  // if (this->m_getValue(2, 16))
+  //   temp += 0.5f;
+  // return temp;
+  return this->m_data[0x0A];
 }
 
 void StatusData::setTargetTemp(float temp) {
-  uint8_t tmp = static_cast<uint8_t>(temp * 4.0F) + 1;
-  uint8_t integer = tmp / 4;
-  this->m_setValue(18, integer - 12, 31);
-  integer -= 16;
-  if (integer < 1 || integer > 14)
-    integer = 1;
-  this->m_setValue(2, ((tmp & 2) << 3) | integer, 31);
+  uint8_t tmp = static_cast<uint8_t>(temp * 16.0f) + 4;
+  this->m_setValue(2, ((tmp & 8) << 1) | (tmp >> 4), 31);
 }
 
-static float getTemp(int integer, int decimal, bool fahrenheits) {
-  integer -= 50;
-  if (!fahrenheits && decimal > 0)
-    return static_cast<float>(integer / 2) + static_cast<float>(decimal) * ((integer >= 0) ? 0.1F : -0.1F);
-  if (decimal >= 5)
-    return static_cast<float>(integer / 2) + ((integer >= 0) ? 0.5F : -0.5F);
-  return static_cast<float>(integer) * 0.5F;
-}
-float StatusData::getIndoorTemp() const { return getTemp(this->m_getValue(11), this->m_getValue(15, 15), this->isFahrenheits()); }
-float StatusData::getOutdoorTemp() const { return getTemp(this->m_getValue(12), this->m_getValue(15, 15, 4), this->isFahrenheits()); }
+static float i16tof(int16_t in) { return static_cast<float>(in - 50) * 0.5f; }
+static float i16tof2(int16_t in) { return static_cast<float>(in - 0x30) / 2; }
+// float StatusData::getIndoorTemp() const { return this->m_getValue(0x0B, 0); }
+float StatusData::getIndoorTemp() const { return i16tof(this->m_data[0x0B]); }
+float StatusData::getOutdoorTemp() const { return i16tof2(this->m_data[0x0E]); }
 float StatusData::getHumiditySetpoint() const { return static_cast<float>(this->m_getValue(19, 127)); }
 
 Mode StatusData::getMode() const { return this->m_getPower() ? this->getRawMode() : Mode::MODE_OFF; }
@@ -93,7 +80,7 @@ float StatusData::getPowerUsage() const {
   for (uint32_t weight = 1;; weight *= 100, --ptr) {
     power += weight * bcd2u8(*ptr);
     if (weight == 10000)
-      return static_cast<float>(power) * 0.1F;
+      return static_cast<float>(power) * 0.1f;
   }
 }
 
